@@ -1,0 +1,46 @@
+name: CI Build and Test
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Project
+        uses: actions/checkout@v5
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          java-version: 21
+          cache: 'maven'
+          distribution: 'temurin'
+
+      - name: Build with Maven
+        run: mvn -B clean package --file pom.xml
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and Test Docker Image
+        run: |
+          docker build -t dynamic-certs:test .
+          docker run --rm -d --name test-container \
+            -e NODE_ALTERNATIVE_NAMES=localhost \
+            -p 9999:9999 dynamic-certs:test
+          sleep 15
+          curl -f http://localhost:9999/actuator/health || (docker logs test-container && exit 1)
+          docker stop test-container
+
+      - name: Run Trivy Security Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'dynamic-certs:test'
+          format: 'table'
+          exit-code: '1'
+          severity: 'CRITICAL,HIGH'

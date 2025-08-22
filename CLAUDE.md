@@ -22,7 +22,7 @@ This is a Spring Boot application that dynamically generates CockroachDB certifi
 
 ### Core Application
 - **Main class**: `DynamicCertsApplication` (src/main/java/io/crdb/docker/DynamicCertsApplication.java:15)
-- **Framework**: Spring Boot 3.5.4 with Java 21
+- **Framework**: Spring Boot 3.5.5 with Java 21 (Docker uses JDK 24)
 - **Port**: 9999 (configured in application.properties:5)
 - **Health endpoint**: `/actuator/health`
 
@@ -44,9 +44,9 @@ The application runs once at startup and executes these CockroachDB certificate 
 ## Docker Architecture
 
 The Dockerfile uses multi-stage builds:
-1. **Builder stage**: Uses Maven with Eclipse Temurin JDK 21 to compile and package
-2. **CockroachDB stage**: Extracts the CockroachDB binary
-3. **Runtime stage**: Combines Spring Boot layers with CockroachDB binary
+1. **Builder stage**: Uses Maven with Eclipse Temurin JDK 24 to compile and package
+2. **CockroachDB stage**: Extracts the CockroachDB binary from latest image
+3. **Runtime stage**: Combines Spring Boot layers with CockroachDB binary on JDK 24
 
 ## Configuration
 
@@ -54,3 +54,32 @@ Key application properties (src/main/resources/application.properties):
 - Logging levels configured for debugging certificate generation
 - Health endpoint exposure for container monitoring
 - Server runs on port 9999
+
+## CI/CD Pipeline
+
+### GitHub Actions Workflows
+
+**CI Build and Test** (.github/workflows/ci.yml):
+- Triggers on push/PR to master branch
+- Maven clean package build
+- Docker image build and health endpoint testing
+- Trivy security scanning (fails on CRITICAL/HIGH vulnerabilities)
+- Simplified single-platform build for faster CI
+- Uses GitHub Actions v5 and JDK 21
+
+**Release** (.github/workflows/release.yml):
+- Triggers on version tags (v*)
+- Multi-platform builds (linux/amd64, linux/arm64) using QEMU
+- Publishes to Docker Hub with multiple tags (latest, version, full tag)
+- Updates Docker Hub description from README
+- Uses docker/build-push-action for efficient multi-arch builds
+- Required secrets:
+  - `DOCKER_USERNAME`, `DOCKER_PASSWORD` - Docker Hub login
+  - `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN` - For description updates
+
+### Dependency Management
+
+**Dependabot** (.github/dependabot.yml) monitors:
+- Maven dependencies (daily)
+- Docker base images (weekly)
+- GitHub Actions (weekly)

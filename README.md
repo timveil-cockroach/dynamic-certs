@@ -14,8 +14,10 @@ The application runs once at container startup, generates all necessary certific
 - **Multiple Users**: Supports custom client usernames (always includes 'root' user)
 - **Flexible Node Names**: Configurable alternative names for node certificates
 - **Container Ready**: Health endpoint for monitoring in orchestration environments
-- **Multi-stage Build**: Optimized Docker image using official CockroachDB and Eclipse Temurin JDK 21 base images
+- **Multi-stage Build**: Optimized Docker image using official CockroachDB and Eclipse Temurin JDK 24 base images
 - **PKCS#8 Support**: Generates PKCS#8 private keys for client certificates
+- **Security Scanning**: Integrated Trivy scanning in CI/CD pipeline
+- **Multi-platform Support**: Builds for both linux/amd64 and linux/arm64
 
 ## Environment Variables
 
@@ -91,7 +93,7 @@ curl http://localhost:9999/actuator/health
 ## Architecture
 
 The application is built using:
-- **Spring Boot 3.5.4** with Java 21
+- **Spring Boot 3.5.5** with Java 21 (runs on JDK 24 in Docker)
 - **CockroachDB binary** for certificate generation
 - **Multi-stage Docker build** for optimized image size
 - **ApplicationRunner** interface for startup certificate generation
@@ -101,3 +103,19 @@ Certificate generation follows this sequence:
 2. Generate client certificates for specified users
 3. Create node certificates with alternative names
 4. Start Spring Boot application with health monitoring
+
+## CI/CD Pipeline
+
+### Continuous Integration (`ci.yml`)
+- **Triggers**: Every push to master and pull requests
+- **Actions**: Maven build, Docker image creation, health endpoint testing
+- **Security**: Trivy scans for CRITICAL and HIGH vulnerabilities
+
+### Release Process (`release.yml`)
+- **Triggers**: Version tags (v*)
+- **Multi-platform**: Builds for linux/amd64 and linux/arm64
+- **Docker Hub**: Pushes images with latest, version, and tag labels
+- **Documentation**: Automatically syncs README to Docker Hub description
+
+### Dependency Management
+- **Dependabot**: Monitors Maven (daily), Docker (weekly), and GitHub Actions (weekly)
