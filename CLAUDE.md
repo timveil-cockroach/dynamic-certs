@@ -67,10 +67,15 @@ Key application properties (src/main/resources/application.properties):
 - Simplified single-platform build for faster CI
 - Uses GitHub Actions v5 and JDK 21
 
-**Release** (.github/workflows/release.yml):
-- Triggers on version tags (v*)
+**Automated Release** (.github/workflows/release.yml):
+- Triggers automatically on pushes to master that change source code, pom.xml, or Dockerfile
+- No manual tagging required - versions are auto-generated
+- Version format: YYYY.MM.DD and YYYY.MM.DD-sha (e.g., 2024.01.15-a1b2c3d)
 - Multi-platform builds (linux/amd64, linux/arm64) using QEMU
-- Publishes to Docker Hub with multiple tags (latest, version, full tag)
+- Publishes to Docker Hub with tags:
+  - `latest` - Always the newest build
+  - Date tag (e.g., `2024.01.15`)
+  - Date-SHA tag (e.g., `2024.01.15-a1b2c3d`)
 - Updates Docker Hub description from README
 - Uses docker/build-push-action for efficient multi-arch builds
 - Required secrets:

@@ -2,8 +2,12 @@ name: Release Docker Image
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches: [ master ]
+    paths:
+      - 'src/**'
+      - 'pom.xml'
+      - 'Dockerfile'
+      - '.github/workflows/release.yml'
 
 jobs:
   release:
@@ -35,11 +39,15 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Extract Tag Version
-        id: meta
+      - name: Generate Version
+        id: version
         run: |
-          echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-          echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          # Generate date-based version with commit SHA
+          DATE=$(date -u +'%Y.%m.%d')
+          SHORT_SHA=$(echo ${GITHUB_SHA} | cut -c1-7)
+          echo "date=${DATE}" >> $GITHUB_OUTPUT
+          echo "sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "full=${DATE}-${SHORT_SHA}" >> $GITHUB_OUTPUT
 
       - name: Build and Push Multi-Platform Docker Image
         uses: docker/build-push-action@v6
@@ -49,8 +57,8 @@ jobs:
           push: true
           tags: |
             timveil/cockroachdb-dynamic-certs:latest
-            timveil/cockroachdb-dynamic-certs:${{ steps.meta.outputs.version }}
-            timveil/cockroachdb-dynamic-certs:${{ steps.meta.outputs.tag }}
+            timveil/cockroachdb-dynamic-certs:${{ steps.version.outputs.date }}
+            timveil/cockroachdb-dynamic-certs:${{ steps.version.outputs.full }}
 
       - name: Update Docker Hub Description
         uses: peter-evans/dockerhub-description@v4

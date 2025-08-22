@@ -111,10 +111,18 @@ Certificate generation follows this sequence:
 - **Actions**: Maven build, Docker image creation, health endpoint testing
 - **Security**: Trivy scans for CRITICAL and HIGH vulnerabilities
 
-### Release Process (`release.yml`)
-- **Triggers**: Version tags (v*)
+### Automated Release Process (`release.yml`)
+- **Triggers**: Automatically on pushes to master that modify:
+  - Source code (`src/**`)
+  - Maven config (`pom.xml`)
+  - Dockerfile
+  - Release workflow itself
+- **Versioning**: Date-based tags (YYYY.MM.DD and YYYY.MM.DD-sha)
 - **Multi-platform**: Builds for linux/amd64 and linux/arm64
-- **Docker Hub**: Pushes images with latest, version, and tag labels
+- **Docker Hub**: Pushes images with:
+  - `latest` - Always points to newest build
+  - `YYYY.MM.DD` - Date of release
+  - `YYYY.MM.DD-sha` - Date plus commit SHA for uniqueness
 - **Documentation**: Automatically syncs README to Docker Hub description
 
 ### Dependency Management
