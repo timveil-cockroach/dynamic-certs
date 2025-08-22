@@ -18,6 +18,12 @@ COPY --from=cockroach /cockroach/ ./
 RUN mkdir -pv ./.cockroach-certs
 RUN mkdir -pv ./.cockroach-key
 
+# Create non-root user for security
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+RUN chown -R appuser:appuser /.cockroach-certs /.cockroach-key
+
+USER appuser
+
 EXPOSE 9999
 
 ENTRYPOINT ["java", "org.springframework.boot.loader.launch.JarLauncher"]
