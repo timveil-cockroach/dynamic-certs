@@ -1,0 +1,59 @@
+name: Release Docker Image
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Project
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: 21
+          cache: 'maven'
+          distribution: 'temurin'
+
+      - name: Build with Maven
+        run: mvn -B clean package --file pom.xml
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Extract Tag Version
+        id: meta
+        run: |
+          echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Build and Push Multi-Platform Docker Image
+        run: |
+          docker buildx build --push --platform linux/amd64,linux/arm64 \
+            -t timveil/cockroachdb-dynamic-certs:latest \
+            -t timveil/cockroachdb-dynamic-certs:${{ steps.meta.outputs.version }} \
+            -t timveil/cockroachdb-dynamic-certs:${{ steps.meta.outputs.tag }} .
+
+      - name: Run Trivy Security Scan on Release
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'timveil/cockroachdb-dynamic-certs:${{ steps.meta.outputs.version }}'
+          format: 'sarif'
+          output: 'trivy-release-results.sarif'
+
+      - name: Upload Release Trivy Scan Results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-release-results.sarif'

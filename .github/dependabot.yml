@@ -11,3 +11,15 @@ updates:
       interval: "daily"
     assignees:
       - "timveil"
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    assignees:
+      - "timveil"
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    assignees:
+      - "timveil"
