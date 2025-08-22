@@ -59,6 +59,9 @@ jobs:
             timveil/cockroachdb-dynamic-certs:latest
             timveil/cockroachdb-dynamic-certs:${{ steps.version.outputs.date }}
             timveil/cockroachdb-dynamic-certs:${{ steps.version.outputs.full }}
+          # Add supply chain attestations for Docker Scout
+          provenance: true
+          sbom: true
 
       - name: Update Docker Hub Description
         uses: peter-evans/dockerhub-description@v4
