@@ -45,6 +45,14 @@ jobs:
             -t timveil/cockroachdb-dynamic-certs:${{ steps.meta.outputs.version }} \
             -t timveil/cockroachdb-dynamic-certs:${{ steps.meta.outputs.tag }} .
 
+      - name: Update Docker Hub Description
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: timveil/cockroachdb-dynamic-certs
+          short-description: "Spring Boot utility that dynamically generates CockroachDB certificates"
+
       - name: Run Trivy Security Scan on Release
         uses: aquasecurity/trivy-action@master
         with:
