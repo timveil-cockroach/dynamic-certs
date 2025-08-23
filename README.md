@@ -1,12 +1,26 @@
 # CockroachDB Dynamic Certs Client
 
-A Spring Boot utility container that dynamically generates certificates for secure CockroachDB deployments. This application combines a Spring Boot service with the CockroachDB binary to create a complete certificate infrastructure at startup:
+[![CI Build and Test](https://github.com/timveil/dynamic-certs/actions/workflows/ci.yml/badge.svg)](https://github.com/timveil/dynamic-certs/actions/workflows/ci.yml) [![Automated Release](https://github.com/timveil/dynamic-certs/actions/workflows/release.yml/badge.svg)](https://github.com/timveil/dynamic-certs/actions/workflows/release.yml) [![Docker Hub](https://img.shields.io/docker/pulls/timveil/cockroachdb-dynamic-certs)](https://hub.docker.com/repository/docker/timveil/cockroachdb-dynamic-certs)
 
-- A Certificate Authority (CA) with private key
-- Client certificates for specified users (with PKCS#8 keys)
-- Node certificates with configurable alternative names
+A production-ready Spring Boot utility container that dynamically generates certificates for secure CockroachDB deployments. This application addresses the common challenge of certificate management in containerized CockroachDB environments by automating the entire certificate lifecycle at container startup.
 
-The application runs once at container startup, generates all necessary certificates, then provides a health endpoint for monitoring.
+## What It Does
+
+This container combines a Spring Boot service with the official CockroachDB binary to create a complete PKI infrastructure:
+
+- **Certificate Authority (CA)**: Creates a root CA certificate and private key for your CockroachDB cluster
+- **Client Certificates**: Generates user certificates with PKCS#8 private keys for secure client connections
+- **Node Certificates**: Creates node certificates with configurable Subject Alternative Names (SANs) for cluster communication
+
+## Use Cases
+
+- **Kubernetes Deployments**: Generate certificates dynamically in init containers or sidecar patterns
+- **Docker Compose**: Bootstrap secure CockroachDB clusters with automated certificate generation
+- **CI/CD Pipelines**: Create ephemeral test environments with proper certificate security
+- **Development**: Quickly spin up secure CockroachDB instances for local development
+- **Multi-Node Clusters**: Generate certificates with proper SANs for distributed deployments
+
+The application runs once at container startup, generates all necessary certificates, then provides a health endpoint for monitoring container readiness.
 
 ## Features
 
@@ -21,10 +35,24 @@ The application runs once at container startup, generates all necessary certific
 
 ## Environment Variables
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| NODE_ALTERNATIVE_NAMES | Yes | - | Space-separated list of alternative names for the node certificate |
-| CLIENT_USERNAME | No | root | Username for client certificate generation |
+| Variable | Required | Default | Description | Example |
+|----------|----------|---------|-------------|----------|
+| `NODE_ALTERNATIVE_NAMES` | Yes | - | Space-separated list of alternative names for the node certificate | `localhost node1.example.com 10.0.1.5` |
+| `CLIENT_USERNAME` | No | `root` | Username for client certificate generation | `myuser` |
+
+### NODE_ALTERNATIVE_NAMES Explained
+
+This variable is critical for proper certificate validation. Include all possible ways your CockroachDB node might be accessed:
+
+- **Hostnames**: `cockroach-node-1`, `db.example.com`
+- **IP Addresses**: `192.168.1.100`, `10.0.0.5`
+- **Service Names**: `cockroachdb-service` (for Kubernetes)
+- **Localhost**: `localhost`, `127.0.0.1` (for local development)
+
+**Example for Kubernetes:**
+```bash
+NODE_ALTERNATIVE_NAMES="cockroachdb cockroachdb.default cockroachdb.default.svc.cluster.local localhost"
+```
 
 ## Building the Image
 ```bash
@@ -43,19 +71,68 @@ docker push timveil/cockroachdb-dynamic-certs:latest
 
 ## Running the Image
 
-Basic usage:
+### Basic Usage
 ```bash
 docker run -p 9999:9999 \
     --env NODE_ALTERNATIVE_NAMES=localhost \
-    -it timveil/cockroachdb-dynamic-certs:latest
+    timveil/cockroachdb-dynamic-certs:latest
 ```
 
-With custom client username:
+### Production Example
 ```bash
-docker run -p 9999:9999 \
-    --env NODE_ALTERNATIVE_NAMES="localhost node1.example.com" \
-    --env CLIENT_USERNAME=myuser \
-    -it timveil/cockroachdb-dynamic-certs:latest
+docker run -d \
+    --name cert-generator \
+    --env NODE_ALTERNATIVE_NAMES="cockroach-node1 cockroach-node1.internal 10.0.1.5 localhost" \
+    --env CLIENT_USERNAME=appuser \
+    -v /host/certs:/output \
+    timveil/cockroachdb-dynamic-certs:latest
+```
+
+### Kubernetes Init Container
+```yaml
+initContainers:
+- name: cert-generator
+  image: timveil/cockroachdb-dynamic-certs:latest
+  env:
+  - name: NODE_ALTERNATIVE_NAMES
+    value: "cockroachdb cockroachdb.default cockroachdb.default.svc.cluster.local"
+  - name: CLIENT_USERNAME
+    value: "root"
+  volumeMounts:
+  - name: certs
+    mountPath: /.cockroach-certs
+  - name: ca-key
+    mountPath: /.cockroach-key
+```
+
+### Docker Compose Integration
+```yaml
+version: '3.8'
+services:
+  cert-generator:
+    image: timveil/cockroachdb-dynamic-certs:latest
+    environment:
+      NODE_ALTERNATIVE_NAMES: "cockroachdb localhost 127.0.0.1"
+      CLIENT_USERNAME: "root"
+    volumes:
+      - certs-volume:/output
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9999/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  cockroachdb:
+    image: cockroachdb/cockroach:latest
+    depends_on:
+      cert-generator:
+        condition: service_healthy
+    volumes:
+      - certs-volume:/.cockroach-certs:ro
+    command: start --certs-dir=/.cockroach-certs --host=cockroachdb
+
+volumes:
+  certs-volume:
 ```
 
 ## Health Monitoring
@@ -125,5 +202,48 @@ Certificate generation follows this sequence:
   - `YYYY.MM.DD-sha` - Date plus commit SHA for uniqueness
 - **Documentation**: Automatically syncs README to Docker Hub description
 
+### Contributing
+
+Contributions welcome! Please:
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Make your changes and test locally
+4. Run the build: `mvn clean package`
+5. Test with Docker: `docker build -t test .`
+6. Submit a pull request
+
+#### Development Setup
+
+```bash
+# Clone repository
+git clone https://github.com/timveil/dynamic-certs.git
+cd dynamic-certs
+
+# Build with Maven
+mvn clean package
+
+# Build Docker image
+docker build -t dynamic-certs:dev .
+
+# Test locally
+docker run --rm -e NODE_ALTERNATIVE_NAMES=localhost dynamic-certs:dev
+```
+
 ### Dependency Management
 - **Dependabot**: Monitors Maven (daily), Docker (weekly), and GitHub Actions (weekly)
+
+## License
+
+This project is open source. See the repository for license details.
+
+## Support
+
+For issues, questions, or contributions:
+- 🐛 **Issues**: [GitHub Issues](https://github.com/timveil/dynamic-certs/issues)
+- 🚀 **Feature Requests**: [GitHub Discussions](https://github.com/timveil/dynamic-certs/discussions)
+- 📖 **Documentation**: This README and inline code comments
+
+---
+
+**Quick Start**: `docker run --rm -e NODE_ALTERNATIVE_NAMES=localhost timveil/cockroachdb-dynamic-certs:latest`
