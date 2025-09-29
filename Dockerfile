@@ -8,7 +8,7 @@ RUN java -Djarmode=layertools -jar application.jar extract
 
 FROM cockroachdb/cockroach:latest as cockroach
 
-FROM eclipse-temurin:21-jdk
+FROM eclipse-temurin:25-jdk
 COPY --from=builder /app/dependencies/ ./
 COPY --from=builder /app/snapshot-dependencies/ ./
 COPY --from=builder /app/spring-boot-loader/ ./
